@@ -23,5 +23,21 @@ class CacheProtocolTestCase(unittest.TestCase):
         self.assertEqual(len(command.parameters), 1)
         self.assertEqual(command.parameters[0], "foobar")
 
+    def test_process_command_expecting_bytes_valid(self):
+        command = CacheProtocol.process_command("set a 0 60 5")
+
+        self.assertIsNotNone(command)
+        self.assertEqual(command.command, "set")
+        self.assertEqual(len(command.parameters), 4)
+        self.assertEqual(command.parameters[0], "a")
+        self.assertEqual(command.expected_bytes, 5)
+
+    def test_process_command_expecting_bytes_missing(self):
+
+        self.assertRaises(AttributeError, lambda: CacheProtocol.process_command("set a"))
+
+    def test_process_command_expecting_bytes_not_int(self):
+        self.assertRaises(ValueError, lambda: CacheProtocol.process_command("set a 0 60 a"))
+
 if __name__ == '__main__':
     unittest.main()
