@@ -1,22 +1,22 @@
 import unittest
 
-from toycache.interface import CacheProtocol
+from toycache.cache_interface import CacheProtocolCommand
 
 
-class CacheProtocolTestCase(unittest.TestCase):
+class CacheProtocolCommandTestCase(unittest.TestCase):
     def test_process_command_invalid(self):
-        command = CacheProtocol.process_command("foobar")
+        command = CacheProtocolCommand.process_command("foobar")
         self.assertIsNone(command)
 
     def test_process_command_valid_no_args(self):
-        command = CacheProtocol.process_command("stats")
+        command = CacheProtocolCommand.process_command("stats")
 
         self.assertIsNotNone(command)
         self.assertEqual(command.command, "stats")
         self.assertEqual(len(command.parameters), 0)
 
     def test_process_command_valid_with_args(self):
-        command = CacheProtocol.process_command("get foobar")
+        command = CacheProtocolCommand.process_command("get foobar")
 
         self.assertIsNotNone(command)
         self.assertEqual(command.command, "get")
@@ -24,7 +24,7 @@ class CacheProtocolTestCase(unittest.TestCase):
         self.assertEqual(command.parameters[0], "foobar")
 
     def test_process_command_expecting_bytes_valid(self):
-        command = CacheProtocol.process_command("set a 0 60 5")
+        command = CacheProtocolCommand.process_command("set a 0 60 5")
 
         self.assertIsNotNone(command)
         self.assertEqual(command.command, "set")
@@ -34,10 +34,10 @@ class CacheProtocolTestCase(unittest.TestCase):
 
     def test_process_command_expecting_bytes_missing(self):
 
-        self.assertRaises(AttributeError, lambda: CacheProtocol.process_command("set a"))
+        self.assertRaises(AttributeError, lambda: CacheProtocolCommand.process_command("set a"))
 
     def test_process_command_expecting_bytes_not_int(self):
-        self.assertRaises(ValueError, lambda: CacheProtocol.process_command("set a 0 60 a"))
+        self.assertRaises(ValueError, lambda: CacheProtocolCommand.process_command("set a 0 60 a"))
 
 if __name__ == '__main__':
     unittest.main()

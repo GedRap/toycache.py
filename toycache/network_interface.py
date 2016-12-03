@@ -1,6 +1,8 @@
+from twisted.internet import reactor
 from twisted.internet.protocol import Factory
 from twisted.protocols.basic import LineReceiver
-from twisted.internet import reactor
+
+from toycache.cache_interface import CacheProtocolCommand
 
 
 def start_listening(port_number=11222):
@@ -17,8 +19,6 @@ class CacheProtocol(LineReceiver):
     command state: expects to receive a command (e.g. "get key");
     data state: expect to receive raw data (e.g. after receiving set command).
     """
-    supported_commands = ["get", "set", "stats"]
-    commands_which_send_data = ["set", "add", "replace", "append", "prepend"]
 
     def __init__(self):
         self.state = "command"
@@ -35,12 +35,12 @@ class CacheProtocol(LineReceiver):
         if self.state != "command":
             return
 
-        command = CacheProtocol.process_command(line)
+        command = CacheProtocolCommand.process_command(line)
 
         if command is None:
             return
 
-        if command.command in CacheProtocol.commands_which_send_data:
+        if command.command in CacheProtocolCommand.commands_which_send_data:
             self.data_bytes_remaining = command.expected_bytes
             self.command_waiting_for_data = command
             self.state = "data"
@@ -85,40 +85,6 @@ class CacheProtocol(LineReceiver):
 
     def execute_command(self, command):
         pass
-
-    @staticmethod
-    def process_command(command):
-        tokens = command.split(" ")
-
-        if tokens[0] not in CacheProtocol.supported_commands:
-            return None
-
-        command = tokens[0]
-
-        if len(tokens) > 1:
-            parameters = tokens[1:]
-        else:
-            parameters = []
-
-        return CacheProtocolCommand(command, parameters)
-
-
-class CacheProtocolCommand(object):
-
-    def __init__(self, command, parameters, data=None):
-        self.command = command
-        self.parameters = parameters
-        self.data = data
-        self.expected_bytes = None
-
-        if self.command in CacheProtocol.commands_which_send_data:
-            if len(parameters) < 4:
-                raise AttributeError("At least 4 arguments required")
-
-            try:
-                self.expected_bytes = int(parameters[3])
-            except ValueError:
-                raise ValueError("Number of bytes must be an integer")
 
 
 class CacheProtocolFactory(Factory):

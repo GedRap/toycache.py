@@ -1,1 +1,1 @@
-from interface import start_listening
+from .network_interface import start_listening
