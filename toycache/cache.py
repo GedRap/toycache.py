@@ -1,7 +1,7 @@
 import time
+import sys
 
 from cachetools import LRUCache
-
 
 class Cache(object):
     """
@@ -34,7 +34,12 @@ class Cache(object):
         :return: Created cached item
         :rtype: CachedItem
         """
-        expires_at = self._timer() + ttl
+
+        # @todo handle "Can be up to 30 days. After 30 days, is treated as a unix timestamp of an exact date."
+        if ttl == 0:
+            expires_at = None
+        else:
+            expires_at = self._timer() + ttl
         cached_item = CachedItem(key, value, expires_at)
         self._cache[key] = cached_item
 
@@ -51,11 +56,10 @@ class Cache(object):
         except KeyError:
             return None
 
-        if item.expires_at <= self._timer():
+        if (item.expires_at is not None) and (item.expires_at <= self._timer()):
             return None
 
         return item.value
-
 
 class CachedItem(object):
     """
