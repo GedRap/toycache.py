@@ -1,6 +1,34 @@
 import unittest
 
-from toycache.cache_interface import CacheProtocolCommand
+from toycache.cache import Cache
+from toycache.cache_interface import CacheProtocolCommand, CacheInterface
+
+
+class CacheInterfaceTestCase(unittest.TestCase):
+    def setUp(self):
+        self._cache = Cache()
+        self._cache_interface = CacheInterface(self._cache)
+
+    def test_exec_set(self):
+        cmd = CacheProtocolCommand.process_command("set foobar 0 100 4")
+        cmd.data = "Hello world"
+
+        result = self._cache_interface.execute(cmd)
+
+        self.assertIsNone(result.data)
+        self.assertEqual(result.state, "STORED")
+
+        item = self._cache.get("foobar")
+        self.assertEqual(item, cmd.data)
+
+    def test_exec_get(self):
+        self._cache.set("foo", "Foobar123", 0)
+
+        cmd = CacheProtocolCommand.process_command("get foo")
+        result = self._cache_interface.execute(cmd)
+
+        self.assertEqual(result.state, "END")
+        self.assertEqual(result.data, "VALUE foo 0 9\r\nFoobar123")
 
 
 class CacheProtocolCommandTestCase(unittest.TestCase):
