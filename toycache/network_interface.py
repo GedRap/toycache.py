@@ -2,13 +2,15 @@ from twisted.internet import reactor
 from twisted.internet.protocol import Factory
 from twisted.protocols.basic import LineReceiver
 
-from toycache.cache_interface import CacheProtocolCommand
+from toycache.cache import Cache
+from toycache.cache_interface import CacheProtocolCommand, CacheInterface
 
 
 def start_listening(port_number=11222):
     reactor.listenTCP(port_number, CacheProtocolFactory())
     reactor.run()
 
+# @todo support getting multiple keys in one request
 
 class CacheProtocol(LineReceiver):
     """
@@ -18,9 +20,14 @@ class CacheProtocol(LineReceiver):
     Works as a state machine with 2 states.
     command state: expects to receive a command (e.g. "get key");
     data state: expect to receive raw data (e.g. after receiving set command).
+
+    Memcached protocol docs say "There are two kinds of data sent in the memcache protocol:
+    text lines and unstructured data." thus making LineReceiver a perfect choice as a helper
+    parent class.
     """
 
-    def __init__(self):
+    def __init__(self, cache_interface):
+        self.cache_interface = cache_interface
         self.state = "command"
         self.command_waiting_for_data = None
 
@@ -48,14 +55,20 @@ class CacheProtocol(LineReceiver):
         else:
             self._processed_commands.append(command)
 
-        # don't execute if data is pendig @todo
-        # self.execute_command(command)
+        if self.state != "data":
+            result = self.cache_interface.execute(command)
+            self.write_result(result)
 
     def rawDataReceived(self, data):
         if self.data_bytes_remaining == 0:
             raise ValueError("No data expected")
 
         bytes_received = len(data)
+
+        if (bytes_received == (self.data_bytes_remaining + 2)) and data[-2:] == "\r\n":
+            # remove terminating \r\n sequence
+            data = data.rstrip()
+            bytes_received -= 2
 
         if bytes_received > self.data_bytes_remaining:
             raise ValueError("Received more data than expected")
@@ -81,13 +94,17 @@ class CacheProtocol(LineReceiver):
 
             self._processed_commands.append(command)
 
-            # self.execute_command(command)
+            result = self.cache_interface.execute(command)
+            self.write_result(result)
 
-    def execute_command(self, command):
-        pass
+    def write_result(self, result):
+        printable_result = str(result)
+        self.sendLine(printable_result)
 
 
 class CacheProtocolFactory(Factory):
+    def __init__(self):
+        self.cache_interface = CacheInterface(Cache())
 
     def buildProtocol(self, addr):
-        return CacheProtocol()
+        return CacheProtocol(self.cache_interface)
