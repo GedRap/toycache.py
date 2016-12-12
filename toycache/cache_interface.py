@@ -1,3 +1,5 @@
+from toycache.cache import ClientError, ServerError
+
 class CacheInterface(object):
     """
     Interface between the cache and commands received.
@@ -22,7 +24,12 @@ class CacheInterface(object):
             # @todo network interface should write back "ERROR\r\n"
             raise AttributeError("Command {cmd} is not implemented".format(cmd=command.command))
 
-        result = getattr(self, method_name)(command)
+        try:
+            result = getattr(self, method_name)(command)
+        except ClientError as e:
+            raise e
+        except ServerError as e:
+            raise e
 
         return result
 
@@ -47,6 +54,81 @@ class CacheInterface(object):
         result_data += item # terminating \r\n will be appended automatically
 
         return CacheProtocolResult("END", result_data)
+
+    def exec_incr(self, cmd):
+        try:
+            new_value = self._cache.incr(cmd.parameters[0], cmd.parameters[1])
+        except ClientError as e:
+            return CacheProtocolResult("CLIENT_ERROR {msg}".format(msg=e.message))
+
+        if new_value is not None:
+            return CacheProtocolResult(new_value)
+
+        return CacheProtocolResult("NOT_FOUND")
+
+    def exec_decr(self, cmd):
+        try:
+            new_value = self._cache.decr(cmd.parameters[0], cmd.parameters[1])
+        except ClientError as e:
+            return CacheProtocolResult("CLIENT_ERROR {msg}".format(msg=e.message))
+
+        if new_value is not None:
+            return CacheProtocolResult(new_value)
+
+        return CacheProtocolResult("NOT_FOUND")
+
+    def exec_delete(self, cmd):
+        deleted = self._cache.delete(cmd.parameters[0])
+
+        if deleted:
+            return CacheProtocolResult("DELETED")
+
+        return CacheProtocolResult("NOT_FOUND")
+
+    def exec_add(self, cmd):
+        key, flags, ttl, size = cmd.parameters
+        ttl = int(ttl)
+        added = self._cache.add(key, cmd.data, ttl)
+
+        if added:
+            return CacheProtocolResult("STORED")
+
+        return CacheProtocolResult("NOT_STORED")
+
+    def exec_replace(self, cmd):
+        key, flags, ttl, size = cmd.parameters
+        ttl = int(ttl)
+        replaced = self._cache.replace(key, cmd.data, ttl)
+
+        if replaced:
+            return CacheProtocolResult("STORED")
+
+        return CacheProtocolResult("NOT_STORED")
+
+    def exec_append(self, cmd):
+        key, flags, ttl, size = cmd.parameters
+        ttl = int(ttl)
+        appended = self._cache.append(key, cmd.data, ttl)
+
+        if appended:
+            return CacheProtocolResult("STORED")
+
+        return CacheProtocolResult("NOT_STORED")
+
+    def exec_prepend(self, cmd):
+        key, flags, ttl, size = cmd.parameters
+        ttl = int(ttl)
+        prepended = self._cache.prepend(key, cmd.data, ttl)
+
+        if prepended:
+            return CacheProtocolResult("STORED")
+
+        return CacheProtocolResult("NOT_STORED")
+
+    def exec_flush_all(self, cmd):
+        self._cache.flush_all()
+
+        return CacheProtocolResult("OK")
 
 class CacheProtocolResult(object):
     """
@@ -78,7 +160,10 @@ class CacheProtocolCommand(object):
     """
 
     # @todo [noreply] support
-    supported_commands = ["get", "set", "stats"]
+    supported_commands = [
+        "get", "set", "stats", "incr", "decr", "delete", "add",
+        "replace", "append", "prepend", "flush_all"
+    ]
     commands_which_send_data = ["set", "add", "replace", "append", "prepend"]
 
     def __init__(self, command, parameters, data=None):
