@@ -167,6 +167,8 @@ class Cache(object):
         """
         current_data = self.get(key)
 
+        # @todo ignore ttl
+
         if current_data is None:
             return False
 
@@ -186,6 +188,8 @@ class Cache(object):
 
         if current_data is None:
             return False
+
+        # @todo ignore ttl
 
         self.set(key, value + current_data, ttl)
 
