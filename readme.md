@@ -22,7 +22,7 @@ at the time of writing but planning to do it eventually).
 git clone https://github.com/GedRap/toycache.py.git
 cd toycache.py
 pip install -r requirements.txt
-python run.py
+./run.sh
 ```
 
 ### Running it in production

@@ -1,2 +1,4 @@
 *.pyc
 .idea/
+twistd.log
+twistd.pid

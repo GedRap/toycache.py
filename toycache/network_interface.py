@@ -1,14 +1,25 @@
 from twisted.internet import reactor
 from twisted.internet.protocol import Factory
 from twisted.protocols.basic import LineReceiver
+from twisted.application import service
 
 from toycache.cache import Cache
 from toycache.cache_interface import CacheProtocolCommand, CacheInterface
 
 
-def start_listening(port_number=11222):
-    reactor.listenTCP(port_number, CacheProtocolFactory())
-    reactor.run()
+class CacheService(service.Service):
+    """
+    Twisted Service used for running in application environment.
+    """
+
+    def __init__(self, port_number=11222):
+        self.port_number = port_number
+
+    def startService(self):
+        self._port = reactor.listenTCP(self.port_number, CacheProtocolFactory())
+
+    def stopService(self):
+        return self._port.stopListening()
 
 # @todo support getting multiple keys in one request
 
