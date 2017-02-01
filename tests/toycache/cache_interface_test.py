@@ -10,7 +10,7 @@ class CacheInterfaceTestCase(unittest.TestCase):
         self._cache_interface = CacheInterface(self._cache)
 
     def test_exec_set(self):
-        cmd = CacheProtocolCommand.process_command("set foobar 0 100 4")
+        cmd = CacheProtocolCommand.process_command("set foobar 0 100 11")
         cmd.data = "Hello world"
 
         result = self._cache_interface.execute(cmd)

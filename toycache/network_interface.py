@@ -44,7 +44,7 @@ class CacheProtocol(LineReceiver):
 
         self.data_bytes_remaining = 0
 
-        self._processed_commands = list()
+        self.processed_commands = list()
 
     def lineReceived(self, line):
         if len(line) == 0:
@@ -64,7 +64,7 @@ class CacheProtocol(LineReceiver):
             self.state = "data"
             self.setRawMode()
         else:
-            self._processed_commands.append(command)
+            self.processed_commands.append(command)
 
         if self.state != "data":
             result = self.cache_interface.execute(command)
@@ -82,7 +82,12 @@ class CacheProtocol(LineReceiver):
             bytes_received -= 2
 
         if bytes_received > self.data_bytes_remaining:
-            raise ValueError("Received more data than expected")
+            self.write_result("CLIENT_ERROR bad data chunk")
+
+            # reset state
+            self.state = "command"
+            self.setLineMode()
+            self.command_waiting_for_data = None
 
         if self.state == "command":
             return
@@ -103,7 +108,7 @@ class CacheProtocol(LineReceiver):
             command = self.command_waiting_for_data
             self.command_waiting_for_data = None
 
-            self._processed_commands.append(command)
+            self.processed_commands.append(command)
 
             result = self.cache_interface.execute(command)
             self.write_result(result)
