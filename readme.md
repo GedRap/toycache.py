@@ -4,7 +4,7 @@ Memcached server implemented in python for educational purposes, wanted to learn
 
 ## Compatibility with memcached
 
-[[https://github.com/GedRap/toycache.py/blob/master/screenshots/toycache.png|alt=octocat]]
+![Screenshot](https://github.com/GedRap/toycache.py/blob/master/screenshots/toycache.png)
 
 I tried to achieve high compatibility but made some decisions to limit
 the scope of the project to keep it at the 'weekend project' level and thus excluded some features.
