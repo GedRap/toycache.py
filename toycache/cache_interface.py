@@ -163,8 +163,8 @@ class CacheProtocolResult(object):
     def __str__(self):
         representation = ""
         if self.data is not None:
-            representation = self.data + "\r\n"
-        representation += self.state
+            representation = str(self.data) + "\r\n"
+        representation += str(self.state)
 
         return representation
 
