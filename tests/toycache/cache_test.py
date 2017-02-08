@@ -13,6 +13,9 @@ class CacheTestCase(unittest.TestCase):
         item = self._cache.get("foobar")
 
         self.assertIsNone(item)
+        self.assertEqual(self._cache.stats.get_misses, 1)
+        self.assertEqual(self._cache.stats.get_hits, 0)
+        self.assertEqual(self._cache.stats.sets, 0)
 
     def test_set(self):
         item = self._cache.set("foobar", "cached", 3)
@@ -20,6 +23,10 @@ class CacheTestCase(unittest.TestCase):
         self.assertEqual(item.key, "foobar")
         self.assertEqual(item.value, "cached")
         self.assertEqual(item.expires_at, 3)
+
+        self.assertEqual(self._cache.stats.get_misses, 0)
+        self.assertEqual(self._cache.stats.get_hits, 0)
+        self.assertEqual(self._cache.stats.sets, 1)
 
     def test_get_expired(self):
         self._cache.set("foobar", "cache", 2)
@@ -31,12 +38,16 @@ class CacheTestCase(unittest.TestCase):
         self.assertIsNone(item)
 
     def test_get_valid(self):
-        self._cache.set("foo", "hello", 2)
+        self._cache.set_cached_item("foo", "hello", 2)
         self._timer.tick()
 
         item = self._cache.get("foo")
 
         self.assertEqual(item, "hello")
+
+        self.assertEqual(self._cache.stats.get_misses, 0)
+        self.assertEqual(self._cache.stats.get_hits, 1)
+        self.assertEqual(self._cache.stats.sets, 0)
 
     def test_incr_not_exists(self):
         self.assertIsNone(self._cache.incr("foobar", 1))
@@ -47,9 +58,13 @@ class CacheTestCase(unittest.TestCase):
         self.assertRaises(ClientError, lambda: self._cache.incr("foo", 10))
 
     def test_incr_valid(self):
-        self._cache.set("foo", 10, 0)
+        self._cache.set_cached_item("foo", 10, 0)
 
         self.assertEqual(self._cache.incr("foo", 4), 14)
+
+        self.assertEqual(self._cache.stats.get_misses, 0)
+        self.assertEqual(self._cache.stats.get_hits, 0)
+        self.assertEqual(self._cache.stats.sets, 0)
 
     def test_decr_not_exists(self):
         self.assertIsNone(self._cache.decr("foobar", 1))

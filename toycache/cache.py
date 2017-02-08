@@ -3,6 +3,20 @@ import sys
 
 from cachetools import LRUCache
 
+
+class CacheStats(object):
+    """
+    Holding data related to cache access statistics.
+
+    While some other data structure such MutableMapping might be more universal, it might be a too
+    complex given that we have < 10 fields. And standard dict would be slightly too cumbersome to
+    use.
+    """
+    def __init__(self):
+        self.get_hits = 0
+        self.get_misses = 0
+        self.sets = 0
+
 class Cache(object):
     """
     The cache itself.
@@ -24,10 +38,27 @@ class Cache(object):
         # and we want to use different TTL periods for different items).
         self._cache = LRUCache(max_items)
         self._timer = timer
+        self.stats = CacheStats()
 
     def set(self, key, value, ttl):
         """
         Set value for cache item
+        :param key: Item key
+        :param value: Item value
+        :param ttl: Time to live in units of the timer set (default: seconds).
+        :return: Created cached item
+        :rtype: CachedItem
+        """
+
+        cached_item = self.set_cached_item(key, value, ttl)
+        self.stats.sets += 1
+
+        return cached_item
+
+    def set_cached_item(self, key, value, ttl):
+        """
+        Set value for cache item, intended for internal usage because it does not update stats
+        (and possibly other things).
         :param key: Item key
         :param value: Item value
         :param ttl: Time to live in units of the timer set (default: seconds).
@@ -40,31 +71,60 @@ class Cache(object):
             expires_at = None
         else:
             expires_at = self._timer() + ttl
+
         cached_item = CachedItem(key, value, expires_at)
         self._cache[key] = cached_item
 
         return cached_item
 
-    def get(self, key, return_value=True):
+    def get(self, key):
         """
         Get value of cached item stored under the given key.
         :param key: Key
+
         :return: Value of the cached item if found, None if not found or expired.
         """
 
-        # @todo differentiate stored null value and not found
+        # @todo 'not found' should probably return special value because at the moment it is not
+        # possible to tell whether the stored value is None or it was not found
+        if not self.holds_valid_value(key):
+            self.stats.get_misses += 1
+            return None
+
+        item = self._cache[key]
+        self.stats.get_hits += 1
+
+        return item.value
+
+    def get_cached_item(self, key):
+        """
+        Get instance of CachedItem instead of cached value as `get` does. Does not update usage
+        stats. Intended for internal usage instead of `get`.
+        :param key: Key
+        :return: instance of CachedItem
+        :rtype: CachedItem
+        """
+
+        if not self.holds_valid_value(key):
+            return None
+
+        return self._cache[key]
+
+    def holds_valid_value(self, key):
+        """
+        Check if value under the given key is valid, i.e. exists and has not expired.
+        :param key: Cache key
+        :return: True if valid, False otherwise
+        """
         try:
             item = self._cache[key]
         except KeyError:
-            return None
+            return False
 
         if (item is None) or ((item.expires_at is not None) and (item.expires_at <= self._timer())):
-            return None
+            return False
 
-        if return_value:
-            return item.value
-
-        return item
+        return True
 
     def incr(self, key, increment):
         """
@@ -73,7 +133,7 @@ class Cache(object):
         :param increment: Increase stored value by this number
         :return: New value
         """
-        item = self.get(key, return_value=False)
+        item = self.get_cached_item(key)
 
         if item is None:
             return None
@@ -94,7 +154,7 @@ class Cache(object):
         :param decremet: Decrease stored vaue by this number
         :return: New value
         """
-        item = self.get(key, return_value=False)
+        item = self.get_cached_item(key)
 
         if item is None:
             return None
@@ -114,9 +174,8 @@ class Cache(object):
         :param key: Cache key
         :return: True if deleted, False if not found
         """
-        exists = self.get(key) is not None
 
-        if not exists:
+        if not self.holds_valid_value(key):
             return False
 
         self._cache[key] = None
@@ -131,12 +190,11 @@ class Cache(object):
         :param ttl: Time to live
         :return: True if value has been added
         """
-        exists = self.get(key) is not None
 
-        if exists:
+        if self.holds_valid_value(key):
             return False
 
-        self.set(key, value, ttl)
+        self.set_cached_item(key, value, ttl)
 
         return True
 
@@ -148,12 +206,10 @@ class Cache(object):
         :param ttl: New TTL
         :return: True if replaced, False if not found
         """
-        exists = self.get(key) is not None
-
-        if not exists:
+        if not self.holds_valid_value(key):
             return False
 
-        self.set(key, value, ttl)
+        self.set_cached_item(key, value, ttl)
 
         return True
 
@@ -165,14 +221,14 @@ class Cache(object):
         :param ttl: New TTL
         :return: True if stored successfully, False if not found
         """
-        current_data = self.get(key)
+        current_data = self.get_cached_item(key)
 
-        # @todo ignore ttl
+        # @todo ignore ttl?
 
         if current_data is None:
             return False
 
-        self.set(key, current_data + value, ttl)
+        self.set_cached_item(key, current_data.value + value, ttl)
 
         return True
 
@@ -184,14 +240,14 @@ class Cache(object):
         :param ttl: New TTL
         :return: True if prepended successfully, False if not found
         """
-        current_data = self.get(key)
+        current_data = self.get_cached_item(key)
 
         if current_data is None:
             return False
 
-        # @todo ignore ttl
+        # @todo ignore ttl?
 
-        self.set(key, value + current_data, ttl)
+        self.set_cached_item(key, value + current_data.value, ttl)
 
         return True
 
