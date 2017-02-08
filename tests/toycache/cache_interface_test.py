@@ -154,6 +154,27 @@ class CacheInterfaceTestCase(unittest.TestCase):
         self.assertEqual(result.state, "OK")
         self.assertIsNone(result.data)
 
+    def test_exec_stats(self):
+        self._cache.stats.get_hits = 1
+        self._cache.stats.get_misses = 3
+        self._cache.stats.sets = 5
+
+        expected = "STAT cmd_get {cmd_get}\r\nSTAT cmd_set {cmd_set}\r\n" \
+                   "STAT get_hits {get_hits}\r\nSTAT get_misses {get_misses}"
+        stats = self._cache.stats
+        expected = expected.format(
+            cmd_get=stats.get_misses + stats.get_hits,
+            cmd_set=stats.sets,
+            get_hits=stats.get_hits,
+            get_misses=stats.get_misses
+        )
+
+        cmd = CacheProtocolCommand.process_command("stats")
+        result = self._cache_interface.execute(cmd)
+
+        self.assertEqual(result.state, "")
+        self.assertEqual(result.data, expected)
+
 class CacheProtocolCommandTestCase(unittest.TestCase):
     def test_process_command_invalid(self):
         command = CacheProtocolCommand.process_command("foobar")

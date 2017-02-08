@@ -7,6 +7,7 @@ class CacheInterface(object):
     def __init__(self, cache):
         """
         Initiate inteface
+        :type cache toycache.cache.Cache
         :param cache: Cache to bind the interface to
         """
         self._cache = cache
@@ -129,6 +130,20 @@ class CacheInterface(object):
         self._cache.flush_all()
 
         return CacheProtocolResult("OK")
+
+    def exec_stats(self, cmd):
+        stats = self._cache.stats
+        stats_output = "STAT cmd_get {cmd_get}\r\nSTAT cmd_set {cmd_set}\r\n" \
+                       "STAT get_hits {get_hits}\r\nSTAT get_misses {get_misses}"
+        stats_output = stats_output.format(
+            cmd_get=stats.get_misses + stats.get_hits,
+            cmd_set=stats.sets,
+            get_hits=stats.get_hits,
+            get_misses=stats.get_misses
+        )
+
+        return CacheProtocolResult("", stats_output)
+
 
 class CacheProtocolResult(object):
     """
